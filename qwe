@@ -1,0 +1,638 @@
+#!/usr/bin/env python
+# coding: utf-8
+
+# In[1]:
+
+
+def mean_confidence_interval(data, confidence=0.95):
+    a = 1.0 * np.array(data)
+    n = len(a)
+    m, se = np.mean(a), stats.sem(a)
+    h = se * stats.t.ppf((1 + confidence) / 2., n-1)
+    return m, m-h, m+h
+#df_control_words.sum().sum()+df_coded_words.sum().sum()+df_uncoded_words.sum().sum()+df_direct_words.sum().sum()
+#np.count_nonzero(df_uncoded_words) +np.count_nonzero(df_coded_words) +np.count_nonzero(df_direct_words) 
+(df_uncoded_words.sum(axis = 1).sum()+df_coded_words.sum(axis = 1).sum()+df_direct_words.sum(axis = 1).sum())/85
+#df_control_words.sum().sum()
+#df_coded_mistakes.count().sum()
+#df_uncoded_mistakes.count().sum()
+#(df_direct_mistakes/df_direct_words).mean(axis=1)#.mean()
+#((df_control_mistakes/df_control_words)*100).mean(axis=1).mean()
+#((df_codedb_mistakes/df_codedb_words)*100).mean(axis=1).mean()
+#mean_confidence_interval(codedb_low_fw.iloc[:,-1]), codedb_low_fw.iloc[:,-1].std()
+#df_control_words.sum().sum() - df_codedb_words.iloc[:,1:].sum().sum()
+direct_loww.sum().sum()
+
+
+# In[399]:
+
+
+def cumsumFW(words, mistakes, k, name, action, clr = 'no', yl = True): #1, 1-2, ...
+    x = range(1, k+1)
+    words_col = words.columns[1:]
+    words[words_col]=words[words_col].fillna(0)
+    mistakes_col = mistakes.columns[1:]
+    mistakes[mistakes_col]=mistakes[mistakes_col].fillna(0)
+    cs_words = words.cumsum(axis = 1)
+    cs_mistakes = mistakes.cumsum(axis = 1)
+    y= [(float((cs_mistakes.iloc[:,n-1:n]/cs_words.iloc[:,n-1:n]).mean()))*100 for n in x]
+    if action == 'plot':
+        if clr == 'no':
+            if yl == True:
+                plt.ylabel('Avg. errors per 100 words')
+            plt.xlabel('Tasks 1, 1-2, ..., 1-9')
+            plt.scatter(x, y, label = name)
+            plt.legend()
+        else:
+            if yl == True:
+                plt.ylabel('Avg. errors per 100 words')
+            plt.xlabel('Tasks 1, 1-2, ..., 1-9')
+            plt.scatter(x, y, label = name, color = clr)
+            plt.legend()
+    if action == 'data':
+        return (cs_mistakes/cs_words)*100
+       
+        
+def cumsumEW(words, mistakes, k, name, action, clr = 'no', yl = True): #1-9, 2-9, ...
+    x = range(1, k+1)
+    words = words[words.columns[::-1]] #it just works
+    mistakes = mistakes[mistakes.columns[::-1]]
+    words_col = words.columns[1:]
+    words[words_col]=words[words_col].fillna(0)
+    mistakes_col = mistakes.columns[1:]
+    mistakes[mistakes_col]=mistakes[mistakes_col].fillna(0)
+    cs_words = words.cumsum(axis = 1)
+    cs_mistakes = mistakes.cumsum(axis = 1)
+    y= [(float((cs_mistakes.iloc[:,n-1:n]/cs_words.iloc[:,n-1:n]).mean()))*100 for n in x]
+    y = y[::-1]
+    #y = [((cs_mistakes.iloc[:,n-1].sum())/(cs_words.iloc[:,n-1].sum()))*100 for n in x]
+    if action == 'plot':
+        if clr == 'no':
+            plt.scatter(x, y, label = name)
+            if yl == True:
+                plt.ylabel('Avg. errors per 100 words')
+            plt.xlabel('Tasks 1-9, 2-9, ..., 9')
+            plt.legend()
+        else:
+            plt.scatter(x, y, label = name, color = clr)
+            if yl == True:
+                plt.ylabel('Avg. errors per 100 words')
+            plt.xlabel('Tasks 1-9, 2-9, ..., 9')
+            plt.legend()
+    if action == 'data':
+        cs_perc = (cs_mistakes/cs_words)*100
+        cs_perc = cs_perc[cs_perc.columns[::-1]]
+        return cs_perc
+    
+    
+def highPerf(dfw, dfm, to_return):
+    dfp = (dfm.cumsum(axis=1).iloc[:,1:2]/dfw.cumsum(axis=1).iloc[:,1:2])
+   
+    median = dfp.median().values[0]
+    highw = pd.DataFrame(columns =dfw.columns)
+    highm = pd.DataFrame(columns =dfw.columns)
+    loww = pd.DataFrame(columns =dfw.columns)
+    lowm = pd.DataFrame(columns =dfw.columns)
+    for x in range(1, dfp.size + 1):
+        if dfp.iat[x-1,0]<median:
+            highw = highw.append(dfw.iloc[x-1])
+            highm = highm.append(dfm.iloc[x-1])
+        else:
+            loww = loww.append(dfw.iloc[x-1])
+            lowm = lowm.append(dfm.iloc[x-1])
+
+    if to_return == 'highw':
+        return highw
+    if to_return == 'highm':
+        return highm
+    if to_return == 'loww':
+        return loww
+    if to_return == 'lowm':
+        return lowm
+
+    
+def ttest(a,b):
+    return [stats.ttest_ind(a.iloc[:,i-1:i],b.iloc[:,i-1:i], equal_var = False, nan_policy = 'omit') for i in range(1,10)]
+def ttest14(a,b):
+    return [round(stats.ttest_ind(a.iloc[:,i-1:i],b.iloc[:,i-1:i], equal_var = False, nan_policy = 'omit')[1][0],2) for i in range(1,15)]
+def cohensD (a,b, name, clr,box = True, xlab = 'Tasks'):
+    x = range(10)    
+
+    cohd = pd.DataFrame(data = 
+    [round(float(abs(a.iloc[:,i-1:i].mean() - b.iloc[:,i-1:i].mean())/
+    (((a.iloc[:,i-1:i].size - 1)*(a.iloc[:,i-1:i].std()**2)+(b.iloc[:,i-1:i].size - 1)*(b.iloc[:,i-1:i].std()**2))/
+     (a.iloc[:,i-1:i].size + b.iloc[:,i-1:i].size - 2))**(.5)),2) for i in range (1,10)])
+    cohd.columns = ['cohdcorr']
+    ##plt.scatter(x, cohd, label = name,color = clr)
+    #plt.axhline(y=0.2,color = 'black')
+    #plt.axhline(y=0.5,color = 'black')
+   # plt.axhline(y=0.8,color = 'black')
+   # plt.ylabel('Сohen\'s D')
+   # plt.xlabel(xlab)
+   # if box == False:
+   #     plt.legend(bbox_to_anchor=(1.05, 1.0), loc='best')
+   # else:
+   #     plt.legend(loc = 'best')
+       
+
+    #cohd['cohdincorr'] = [round(float(abs(a.iloc[:,i-1:i].mean() - b.iloc[:,i-1:i].mean())/
+    #(.5*a.iloc[:,i-1:i].std()+.5*b.iloc[:,i-1:i].std())),2) for i in range (1,9)]
+    return cohd
+
+
+# In[584]:
+
+
+import pandas as pd
+import matplotlib.pyplot as plt
+from scipy import stats
+import numpy as np
+import pingouin as pg
+df_control_words = pd.read_excel(r"C:\Users\Acer Nitro 5 Spin\Desktop\data 9 wla SF\control lazy.xlsx",sheet_name='words', na_values='-',  encoding = 'utf-8-sig', index_col=0)#.iloc[:,:8]
+df_control_mistakes = pd.read_excel(r"C:\Users\Acer Nitro 5 Spin\Desktop\data 9 wla SF\control lazy.xlsx",sheet_name='mistakes', na_values='-',  encoding = 'utf-8-sig', index_col=0)#.iloc[:,:8]
+
+df_coded_words = pd.read_excel(r"C:\Users\Acer Nitro 5 Spin\Desktop\data 9 wla SF\coded.xlsx",sheet_name='words', na_values='-', encoding = 'utf-8-sig', index_col=0)
+df_coded_mistakes = pd.read_excel(r"C:\Users\Acer Nitro 5 Spin\Desktop\data 9 wla SF\coded.xlsx",sheet_name='mistakes', na_values='-', encoding = 'utf-8-sig', index_col=0)
+
+df_uncoded_words = pd.read_excel(r"C:\Users\Acer Nitro 5 Spin\Desktop\data 9 wla SF\uncoded.xlsx",sheet_name='words', na_values='-',  encoding = 'utf-8-sig', index_col=0)
+df_uncoded_mistakes = pd.read_excel(r"C:\Users\Acer Nitro 5 Spin\Desktop\data 9 wla SF\uncoded.xlsx",sheet_name='mistakes', na_values='-',  encoding = 'utf-8-sig', index_col=0)
+
+df_direct_words = pd.read_excel(r"C:\Users\Acer Nitro 5 Spin\Desktop\data 9 wla SF\direct.xlsx",sheet_name='words', na_values='-',  encoding = 'utf-8-sig', index_col=0)
+df_direct_mistakes = pd.read_excel(r"C:\Users\Acer Nitro 5 Spin\Desktop\data 9 wla SF\direct.xlsx",sheet_name='mistakes', na_values='-',  encoding = 'utf-8-sig', index_col=0)
+
+df_codedb_words = pd.read_excel(r"C:\Users\Acer Nitro 5 Spin\Desktop\data 14 wla SF\codedB.xlsx",sheet_name='words', na_values='-', encoding = 'utf-8-sig', index_col=0)
+df_codedb_mistakes = pd.read_excel(r"C:\Users\Acer Nitro 5 Spin\Desktop\data 14 wla SF\codedB.xlsx",sheet_name='mistakes', na_values='-', encoding = 'utf-8-sig', index_col=0)
+
+codedb_highw = highPerf(df_codedb_words, df_codedb_mistakes, 'highw')
+codedb_highm = highPerf(df_codedb_words, df_codedb_mistakes, 'highm')
+codedb_loww = highPerf(df_codedb_words, df_codedb_mistakes, 'loww')
+codedb_lowm = highPerf(df_codedb_words, df_codedb_mistakes, 'lowm')
+
+
+coded_highw = highPerf(df_coded_words, df_coded_mistakes, 'highw')
+coded_highm = highPerf(df_coded_words, df_coded_mistakes, 'highm')
+coded_loww = highPerf(df_coded_words, df_coded_mistakes, 'loww')
+coded_lowm = highPerf(df_coded_words, df_coded_mistakes, 'lowm')
+
+
+uncoded_highw = highPerf(df_uncoded_words, df_uncoded_mistakes, 'highw')
+uncoded_highm = highPerf(df_uncoded_words, df_uncoded_mistakes, 'highm')
+uncoded_loww = highPerf(df_uncoded_words, df_uncoded_mistakes, 'loww')
+uncoded_lowm = highPerf(df_uncoded_words, df_uncoded_mistakes, 'lowm')
+
+direct_highw = highPerf(df_direct_words, df_direct_mistakes, 'highw')
+direct_highm = highPerf(df_direct_words, df_direct_mistakes, 'highm')
+direct_loww = highPerf(df_direct_words, df_direct_mistakes, 'loww')
+direct_lowm = highPerf(df_direct_words, df_direct_mistakes, 'lowm')
+
+control_highw = highPerf(df_control_words, df_control_mistakes, 'highw')
+control_highm = highPerf(df_control_words, df_control_mistakes, 'highm')
+control_loww = highPerf(df_control_words, df_control_mistakes, 'loww')
+control_lowm = highPerf(df_control_words, df_control_mistakes, 'lowm')
+
+uncoded_fw = cumsumFW(df_uncoded_words, df_uncoded_mistakes, 9,'uncoded', 'data')
+coded_fw = cumsumFW(df_coded_words, df_coded_mistakes, 9,'coded', 'data')
+direct_fw = cumsumFW(df_direct_words, df_direct_mistakes, 9,'direct', 'data')
+control_fw = cumsumFW(df_control_words, df_control_mistakes, 8,'control', 'data')
+codedb_fw = cumsumFW(df_codedb_words, df_codedb_mistakes, 7,'codedb', 'data')
+
+uncoded_low_fw = cumsumFW(uncoded_loww, uncoded_lowm, 9, 'uncoded low', 'data')
+coded_low_fw = cumsumFW(coded_loww, coded_lowm, 9, 'coded low', 'data')
+direct_low_fw = cumsumFW(direct_loww, direct_lowm, 9, 'direct low', 'data')
+control_low_fw = cumsumFW(control_loww, control_lowm, 8, 'control low', 'data')
+codedb_low_fw = cumsumFW(codedb_loww, codedb_lowm,7, 'codedb low', 'data')
+
+uncoded_high_fw = cumsumFW(uncoded_highw, uncoded_highm, 9, 'uncoded high', 'data')
+coded_high_fw = cumsumFW(coded_highw, coded_highm, 9, 'coded high', 'data')
+direct_high_fw = cumsumFW(direct_highw, direct_highm, 9, 'direct high', 'data')
+control_high_fw = cumsumFW(control_highw, control_highm, 8, 'control high', 'data')
+codedb_high_fw = cumsumFW(codedb_highw, codedb_highm, 7, 'codedb high', 'data')
+
+uncoded_ew = cumsumEW(df_uncoded_words, df_uncoded_mistakes, 9,'uncoded', 'data')
+coded_ew = cumsumEW(df_coded_words, df_coded_mistakes, 9,'coded', 'data')
+direct_ew = cumsumEW(df_direct_words, df_direct_mistakes, 9,'direct', 'data')
+control_ew = cumsumEW(df_control_words, df_control_mistakes, 8,'control', 'data')
+codedb_ew = cumsumEW(df_codedb_words, df_codedb_mistakes, 7,'codedb', 'data')
+
+uncoded_high_ew = cumsumEW(uncoded_highw, uncoded_highm, 9,'uncoded high', 'data')
+coded_high_ew = cumsumEW(coded_highw, coded_highm, 9,'coded high', 'data')
+direct_high_ew = cumsumEW(direct_highw, direct_highm, 9,'direct high', 'data')
+control_high_ew = cumsumEW(control_highw, control_highm, 8,'control high', 'data')
+codedb_high_ew = cumsumEW(codedb_highw, codedb_highm, 7,'codedb high', 'data')
+
+uncoded_low_ew  = cumsumEW(uncoded_loww, uncoded_lowm, 9,'uncoded low', 'data')
+coded_low_ew = cumsumEW(coded_loww, coded_lowm, 9,'coded low', 'data')
+direct_low_ew = cumsumEW(direct_loww, direct_lowm, 9,'direct low', 'data')
+control_low_ew = cumsumEW(control_loww, control_lowm, 8,'control low', 'data')
+codedb_low_ew = cumsumEW(codedb_loww, codedb_lowm, 7,'codedb low', 'data')
+
+
+
+
+# In[109]:
+
+
+control_high_fw = control_high_fw.astype('float64')
+control_low_ew = control_low_ew.astype('float64')
+control_low_fw = control_low_fw.astype('float64')
+control_high_ew = control_high_ew.astype('float64')
+coded_low_fw = coded_low_fw.astype('float64')
+uncoded_low_fw = uncoded_low_fw.astype('float64')
+direct_low_fw = direct_low_fw.astype('float64')
+
+coded_high_fw = coded_high_fw.astype('float64')
+uncoded_high_fw = uncoded_high_fw.astype('float64')
+direct_high_fw = direct_high_fw.astype('float64')
+
+with pd.ExcelWriter(r"C:\Users\Acer Nitro 5 Spin\Desktop\wla games howell\9_4groups_low_gh.xlsx") as writer:  
+    gameshowell_4_9(coded_low_fw,uncoded_low_fw,direct_low_fw,control_low_fw).to_excel(writer, sheet_name ='fw')
+    gameshowell_4_9(coded_low_ew,uncoded_low_ew,direct_low_ew,control_low_ew).to_excel(writer, sheet_name ='ew')
+
+with pd.ExcelWriter(r"C:\Users\Acer Nitro 5 Spin\Desktop\wla games howell\9_4groups_high_gh.xlsx") as writer:  
+    gameshowell_4_9(coded_high_fw,uncoded_high_fw,direct_high_fw,control_high_fw).to_excel(writer, sheet_name ='fw')
+    gameshowell_4_9(coded_high_ew,uncoded_high_ew,direct_high_ew,control_high_ew).to_excel(writer, sheet_name ='ew')
+
+with pd.ExcelWriter(r"C:\Users\Acer Nitro 5 Spin\Desktop\wla games howell\9_4groups_gh.xlsx") as writer:  
+    gameshowell_4_9(coded_fw,uncoded_fw,direct_fw,control_fw).to_excel(writer, sheet_name ='fw')
+    gameshowell_4_9(coded_ew,uncoded_ew,direct_ew,control_ew).to_excel(writer, sheet_name ='ew')
+
+
+# In[40]:
+
+
+
+plt.scatter(range(1,9), (df_control_mistakes/df_control_words).mean()[0:8]*100, color = 'red', label = 'control')
+plt.scatter(9, (df_control_mistakes/df_control_words).mean()[8]*100, color = 'black', linewidths = 8)
+plt.scatter(range(10,17), (df_control_mistakes/df_control_words).mean()[9:16]*100, color = 'green',  label = 'codedB')
+plt.plot(range(1,17), (df_control_mistakes/df_control_words).mean()*100)
+plt.xlabel('Tasks 1, 2, ..., 16')
+plt.ylabel('Avg. errors per 100 words')
+
+plt.legend()
+#(df_control_mistakes/df_control_words).mean()[0:8]        
+
+
+# In[16]:
+
+
+with pd.ExcelWriter(r"C:\Users\Acer Nitro 5 Spin\Desktop\wla games howell\spss.xlsx") as writer:  
+    direct_fw.to_excel(writer, sheet_name ='direct fw')
+    coded_fw.to_excel(writer, sheet_name ='coded fw')
+    uncoded_fw.to_excel(writer, sheet_name ='uncoded fw')
+    direct_high_fw.to_excel(writer, sheet_name ='direct high fw')
+    coded_high_fw.to_excel(writer, sheet_name ='coded high fw')
+    uncoded_high_fw.to_excel(writer, sheet_name ='uncoded high fw')
+    direct_low_fw.to_excel(writer, sheet_name ='direct low fw')
+    coded_low_fw.to_excel(writer, sheet_name ='coded low fw')
+    uncoded_low_fw.to_excel(writer, sheet_name ='uncoded low fw')
+    control_low_fw.to_excel(writer, sheet_name = 'control low fw')
+    control_high_fw.to_excel(writer, sheet_name = 'control high fw')
+
+    direct_ew.to_excel(writer, sheet_name ='direct ew')
+    coded_ew.to_excel(writer, sheet_name ='coded ew')
+    uncoded_ew.to_excel(writer, sheet_name ='uncoded ew')
+    direct_high_ew.to_excel(writer, sheet_name ='direct high ew')
+    coded_high_ew.to_excel(writer, sheet_name ='coded high ew')
+    uncoded_high_ew.to_excel(writer, sheet_name ='uncoded high ew')
+    direct_low_ew.to_excel(writer, sheet_name ='direct low ew')
+    coded_low_ew.to_excel(writer, sheet_name ='coded low ew')
+    uncoded_low_ew.to_excel(writer, sheet_name ='uncoded low ew')
+    control_low_ew.to_excel(writer, sheet_name = 'control low ew')
+    control_high_ew.to_excel(writer, sheet_name = 'control high ew')
+
+
+# In[146]:
+
+
+with pd.ExcelWriter(r"C:\Users\Acer Nitro 5 Spin\Desktop\wla games howell\14_3groups_low_gh.xlsx") as writer:  
+    gameshowell(coded_low_fw,uncoded_low_fw,direct_low_fw).to_excel(writer, sheet_name ='fw')
+    gameshowell(coded_low_ew,uncoded_low_ew,direct_low_ew).to_excel(writer, sheet_name ='ew')
+
+with pd.ExcelWriter(r"C:\Users\Acer Nitro 5 Spin\Desktop\wla games howell\14_3groups_high_gh.xlsx") as writer:  
+    gameshowell(coded_high_fw,uncoded_high_fw,direct_high_fw).to_excel(writer, sheet_name ='fw')
+    gameshowell(coded_high_ew,uncoded_high_ew,direct_high_ew).to_excel(writer, sheet_name ='ew')
+
+with pd.ExcelWriter(r"C:\Users\Acer Nitro 5 Spin\Desktop\wla games howell\14_3groups_gh.xlsx") as writer:  
+    gameshowell(coded_fw,uncoded_fw,direct_fw).to_excel(writer, sheet_name ='fw')
+    gameshowell(coded_ew,uncoded_ew,direct_ew).to_excel(writer, sheet_name ='ew')
+
+
+# In[591]:
+
+
+##### prop_cycle = plt.rcParams['axes.prop_cycle']
+#colors = prop_cycle.by_key()['color']
+#colors ''# #1f77b4' - uncoded '#ff7f0e' - coded '#2ca02c' - direct '#d62728' - control
+
+#cumsumFW(df_uncoded_words,df_uncoded_mistakes,14,'uncoded', 'plot', '#1f77b4')
+#cumsumFW(df_coded_words,df_coded_mistakes,14,'coded', 'plot', '#ff7f0e')
+#cumsumFW(df_direct_words,df_direct_mistakes,14,'direct', 'plot', '#2ca02c')
+#cumsumFW(df_control_words,df_control_mistakes,9,'control', 'plot', '#d62728')
+#cohensD(control_fw.iloc[:,0:8],codedb_fw, 'control fw vs codedb fw')
+
+#a =coded_ew.iloc[:,6:] # 7-14 8-14 9-14 ...
+#a= coded_fw.iloc[:,:8] #1 1-2 1-3 ... 
+#a= cumsumFW(df_coded_words.iloc[:,6:],df_coded_mistakes.iloc[:,6:],8,'coded last 8 fw','data')    # 7; 7-8;7-9 ...
+#a= cumsumEW(df_coded_words.iloc[:,:8],df_coded_mistakes.iloc[:,:8],8,'coded last 8 fw','data')    # 1-8;2-8;3-8...
+
+#a = df_coded_mistakes.iloc[:,:8]/df_coded_words.iloc[:,:8] #first 8 averages
+#a = df_coded_mistakes.iloc[:,6:]/df_coded_words.iloc[:,6:]#last 8 averages
+
+#a.columns = [1,2,3,4,5,6,7,8]
+#cumsumFW(uncoded_highw, uncoded_highm, 9, 'uncoded high', 'data')
+
+#b = df_codedb_mistakes/df_codedb_words
+
+#b = codedb_fw
+#b= codedb_ew
+#cohensD(a,b, 'coded last 8 averages vs codedb averages')
+#control_fw.columns = uncoded_fw.columns
+#control_ew.columns = uncoded_ew.columns
+
+#### 9
+#cohensD(control_low_ew,direct_low_ew, 'EW LP: dir. vs ctrl','#2ca02c',1, 'Tasks 1-14, 2-14, ..., 14')
+#cohensD(control_low_ew,coded_low_ew, 'EW LP: cod. vs ctrl','#ff7f0e',1, 'Tasks 1-14, 2-14, ..., 14')
+#cohensD(control_low_ew,uncoded_low_ew, 'EW LP: uncod. vs ctrl','#1f77b4',1, 'Tasks 1-14, 2-14, ..., 14')
+
+
+a = direct_high_fw.iloc[:,1]
+b = direct_high_ew.iloc[:,-2]
+
+# TESTING
+amean = a.mean()
+asizem1 = a.count() -1
+astd = a.std()**2
+bmean = b.mean()
+bsizem1 = b.count() -1
+bstd = b.std()**2
+#abs(amean-bmean)/(((asizem1*astd+bsizem1*bstd)/(asizem1+bsizem1))**(.5))
+#stats.ttest_ind(a,b, equal_var = False, nan_policy = 'omit')
+1- bmean/amean ,stats.ttest_ind(a,b, equal_var = False, nan_policy = 'omit'),abs(amean-bmean)/(((asizem1*astd+bsizem1*bstd)/(asizem1+bsizem1))**(.5)) 
+
+## codedb vs control
+#a = coded_fw.iloc[:,4]
+#b = coded_ew.iloc[:,9]
+
+#b = coded_low_fw.iloc[:,-1]
+#cohensD(a,b, 'EW LP: ctrl vs codedb','red',1,'Tasks 1-8, 2-8, ..., 8')
+
+
+# In[ ]:
+
+
+
+
+
+# In[34]:
+
+
+#cumsumFW(df_uncoded_words,df_uncoded_mistakes,14,'IW uncoded', 'plot', '#1f77b4')
+#cumsumFW(df_coded_words,df_coded_mistakes,14,'IW coded', 'plot', '#ff7f0e')
+#cumsumFW(df_direct_words,df_direct_mistakes,14,'IW direct', 'plot', '#2ca02c')
+
+#cumsumEW(df_uncoded_words,df_uncoded_mistakes,14,'EW uncoded', 'plot', '#1f77b4', False)
+#cumsumEW(df_coded_words,df_coded_mistakes,14,'EW coded', 'plot', '#ff7f0e', False)
+#cumsumEW(df_direct_words,df_direct_mistakes,14,'EW direct', 'plot', '#2ca02c', False)
+
+#cumsumFW(uncoded_loww, uncoded_lowm, 14, 'IW LP uncoded', 'plot', '#1f77b4')
+#cumsumFW(coded_loww,coded_lowm,14,'IW LP coded', 'plot', '#ff7f0e')
+#cumsumFW(direct_loww,direct_lowm,14,'IW LP direct', 'plot', '#2ca02c')
+
+#cumsumEW(uncoded_loww,uncoded_lowm,14,'EW LP uncoded', 'plot', '#1f77b4', False)
+#cumsumEW(coded_loww,coded_lowm,14,'EW LP coded', 'plot', '#ff7f0e', False)
+#cumsumEW(direct_loww,direct_lowm,14,'EW LP direct', 'plot', '#2ca02c', False)
+
+#cumsumFW(uncoded_highw, uncoded_highm, 14, 'IW HP uncoded', 'plot', '#1f77b4')
+#cumsumFW(coded_highw,coded_highm,14,'IW HP coded', 'plot', '#ff7f0e')
+#cumsumFW(direct_highw,direct_highm,14,'IW HP direct', 'plot', '#2ca02c')
+
+#cumsumEW(uncoded_highw,uncoded_highm,14,'EW HP uncoded', 'plot', '#1f77b4', False)
+#cumsumEW(coded_highw,coded_highm,14,'EW HP coded', 'plot', '#ff7f0e', False)
+#cumsumEW(direct_highw,direct_highm,14,'EW HP direct', 'plot', '#2ca02c', False)
+
+#cumsumFW(df_uncoded_words,df_uncoded_mistakes,9,'IW uncoded', 'plot', '#1f77b4')
+#cumsumFW(df_coded_words,df_coded_mistakes,9,'IW coded', 'plot', '#ff7f0e')
+#cumsumFW(df_direct_words,df_direct_mistakes,9,'IW direct', 'plot', '#2ca02c')
+#cumsumFW(df_control_words,df_control_mistakes,9,'IW control', 'plot', '#d62728')
+
+#cumsumEW(df_uncoded_words,df_uncoded_mistakes,9,'EW uncoded', 'plot', '#1f77b4', False)
+#cumsumEW(df_coded_words,df_coded_mistakes,9,'EW coded', 'plot', '#ff7f0e', False)
+#cumsumEW(df_direct_words,df_direct_mistakes,9,'EW direct', 'plot', '#2ca02c', False)
+#cumsumEW(df_control_words,df_control_mistakes,9,'EW control', 'plot', '#d62728', False)
+
+#cumsumFW(uncoded_loww, uncoded_lowm, 9, 'IW LP uncoded', 'plot', '#1f77b4')
+#cumsumFW(coded_loww,coded_lowm,9,'IW LP coded', 'plot', '#ff7f0e')
+#cumsumFW(direct_loww,direct_lowm,9,'IW LP direct', 'plot', '#2ca02c')
+#cumsumFW(control_loww,control_lowm,9,'IW LP control', 'plot', '#d62728')
+
+#cumsumEW(uncoded_loww,uncoded_lowm,9,'EW LP uncoded', 'plot', '#1f77b4', False)
+#cumsumEW(coded_loww,coded_lowm,9,'EW LP coded', 'plot', '#ff7f0e', False)
+#cumsumEW(direct_loww,direct_lowm,9,'EW LP direct', 'plot', '#2ca02c', False)
+#cumsumEW(control_loww,control_lowm,9,'IW LP control', 'plot', '#d62728', False)
+
+#cumsumFW(uncoded_highw, uncoded_highm, 9, 'IW HP uncoded', 'plot', '#1f77b4')
+#cumsumFW(coded_highw,coded_highm,9,'IW HP coded', 'plot', '#ff7f0e')
+#cumsumFW(direct_highw,direct_highm,9,'IW HP direct', 'plot', '#2ca02c')
+#cumsumFW(control_highw,control_highm,9,'IW HP control', 'plot', '#d62728')
+
+cumsumEW(uncoded_highw,uncoded_highm,9,'EW HP uncoded', 'plot', '#1f77b4', False)
+cumsumEW(coded_highw,coded_highm,9,'EW HP coded', 'plot', '#ff7f0e', False)
+cumsumEW(direct_highw,direct_highm,9,'EW HP direct', 'plot', '#2ca02c', False)
+cumsumEW(control_highw,control_highm,9,'EW HP control', 'plot', '#d62728',False)
+
+
+# In[24]:
+
+
+#cumsumFW(uncoded_loww, uncoded_lowm,9,'uncoded low','plot', '#1f77b4')
+cumsumFW(coded_loww, coded_lowm,9,'coded low','plot','#ff7f0e')
+#cumsumFW(direct_loww, direct_lowm,9,'direct low','plot','#2ca02c')
+cumsumFW(control_loww, control_lowm,9,'control low','plot','#d62728')
+control_low_fw = control_low_fw.astype('float64')
+direct_low_fw = direct_low_fw.astype('float64')
+cumsumFW(control_loww, control_lowm,9,'coded low','data','#ff7f0e').iloc[:,2].std()
+
+#ttest14(coded_low_fw, control_low_fw)
+#coded_low_fw.iloc[:,0]
+#np.std(control_low_fw.iloc[:,1]) #coded 1 - 2.76; 1-2 - 1.57 #control 1 - 2.16; 1-2 - 1.77
+
+
+# In[27]:
+
+
+#cumsumFW(uncoded_highw, uncoded_highm,14,'uncoded high','plot', '#1f77b4')
+#cumsumFW(coded_highw, coded_highm,14,'coded high','plot','#ff7f0e')
+#cumsumFW(direct_highw, direct_highm,14,'direct high','plot','#2ca02c')
+cumsumFW(control_highw, control_highm,9,'control high','plot','#d62728')
+#control_high_fw = control_high_fw.astype('float64') #not sure why - but this is necessary
+#direct_high_fw = direct_high_fw.astype('float64')
+
+#ttest14(coded_high_fw, direct_high_fw)
+
+
+# In[29]:
+
+
+#cumsumEW(df_uncoded_words,df_uncoded_mistakes,14,'uncoded', 'plot', '#1f77b4')
+cumsumEW(df_coded_words,df_coded_mistakes,14,'coded', 'plot', '#ff7f0e')
+cumsumEW(df_direct_words,df_direct_mistakes,14,'direct', 'plot', '#2ca02c')
+#cumsumEW(df_control_words,df_control_mistakes,9,'control', 'plot', '#d62728')
+
+ttest14(coded_ew,direct_ew)
+
+
+# In[ ]:
+
+
+#cumsumEW(uncoded_loww, uncoded_lowm,14,'uncoded low','plot', '#1f77b4')
+cumsumEW(coded_loww, coded_lowm,14,'coded low','plot','#ff7f0e')
+cumsumEW(direct_loww, direct_lowm,14,'direct low','plot','#2ca02c')
+#cumsumEW(control_loww, control_lowm,9,'control low','plot','#d62728')
+
+ttest14(direct_low_ew,coded_low_ew)
+
+
+# In[32]:
+
+
+cumsumEW(uncoded_highw, uncoded_highm,14,'EW HP uncod.','plot', '#1f77b4')
+#cumsumEW(coded_highw, coded_highm,14,'EW HP cod.','plot','#ff7f0e')
+cumsumEW(direct_highw, direct_highm,14,'EW HP dir.','plot','#2ca02c')
+#cumsumEW(control_highw, control_highm,9,'control high','plot','#d62728')
+#ttest14(coded_high_ew,direct_high_ew)
+#(uncoded_highm/uncoded_highw).mean()
+
+#float((uncoded_highm.iloc[:,1-1:1]/uncoded_highw.iloc[:,1-1:1]).mean())
+
+
+# In[4]:
+
+
+#highPerf(df_control_words, df_control_mistakes, 'highw')
+c_control_new_loww = highPerf(df_control_words.iloc[:,8:], df_control_mistakes.iloc[:,8:],'loww')
+c_control_new_lowm = highPerf(df_control_words.iloc[:,8:], df_control_mistakes.iloc[:,8:],'lowm')
+c_control_new_highw = highPerf(df_control_words.iloc[:,8:], df_control_mistakes.iloc[:,8:],'highw')
+c_control_new_highm = highPerf(df_control_words.iloc[:,8:], df_control_mistakes.iloc[:,8:],'highm')
+
+c_control_high_new_fw = cumsumFW(c_control_new_highw,c_control_new_highm,8,'coded control high new','data')
+c_control_low_new_fw = cumsumFW(c_control_new_loww,c_control_new_lowm,8,'coded control low new','data')
+ 
+c_control_high_old_fw = cumsumFW(control_highw.iloc[:,8:],control_highm.iloc[:,8:], 8, 'coded control high old','data')
+c_control_low_old_fw = cumsumFW(control_loww.iloc[:,8:],control_lowm.iloc[:,8:], 8, 'coded control low old','data') 
+
+c_control_high_new_ew = cumsumEW(c_control_new_highw,c_control_new_highm,8,'coded control high new','data')
+c_control_low_new_ew = cumsumEW(c_control_new_loww,c_control_new_lowm,8,'coded control low new','data')
+
+c_control_high_old_ew = cumsumEW(control_highw.iloc[:,8:],control_highm.iloc[:,8:], 8, 'coded control high old','data')
+c_control_low_old_ew = cumsumEW(control_loww.iloc[:,8:],control_lowm.iloc[:,8:], 8, 'coded control low old','data')
+
+c_control_fw = cumsumFW(df_control_words.iloc[:,8:],df_control_mistakes.iloc[:,8:], 8, 'coded control','data')
+c_control_ew = cumsumEW(df_control_words.iloc[:,8:],df_control_mistakes.iloc[:,8:], 8, 'coded control','data')
+
+control_fw = cumsumFW(df_control_words.iloc[:,:8], df_control_mistakes.iloc[:,:8],8,'control control', 'data')
+control_ew = cumsumEW(df_control_words.iloc[:,:8], df_control_mistakes.iloc[:,:8],8,'control control', 'data')
+
+control_high_fw = control_high_fw.iloc[:,:8]
+control_low_fw = control_low_fw.iloc[:,:8]
+
+control_high_ew = cumsumEW(control_highw.iloc[:,:8], control_highm.iloc[:,:8],8,'control control', 'data')
+control_low_ew = cumsumEW(control_loww.iloc[:,:8], control_lowm.iloc[:,:8],8,'control control', 'data')
+
+
+# In[68]:
+
+
+control_low_new_ew = control_ew.loc[c_control_low_new_ew.index.values]
+control_high_new_ew = control_ew.loc[c_control_high_new_ew.index.values]
+control_low_new_fw = control_fw.loc[c_control_low_new_fw.index.values]
+control_high_new_fw = control_fw.loc[c_control_high_new_fw.index.values]
+
+
+# In[119]:
+
+
+cumsumEW(df_control_words.iloc[:,:8], df_control_mistakes.iloc[:,:8],8,'control','plot','red')
+cumsumEW(df_control_words.iloc[:,8:], df_control_mistakes.iloc[:,8:],8,'codedB','plot','grey')
+
+#new ppl
+#cumsumEW(control_highw.iloc[:,:8], control_highm.iloc[:,:8],8,'HP control (1, 2)','plot','purple')
+#cumsumEW(df_control_words.loc[c_control_high_new_fw.index.values].iloc[:,:8], df_control_mistakes.loc[c_control_high_new_fw.index.values].iloc[:,:8],8, 'HP control (9, 10)', 'plot','#d62728' )
+#cumsumEW(c_control_new_highw, c_control_new_highm,8,'HP codedB (9, 10)','plot','#FAF60B')
+#cumsumEW(control_highw.iloc[:,8:], control_highm.iloc[:,8:],8,'HP codedB (1, 2)','plot','#1AF60B')
+
+c_control_high_new_fw = c_control_high_new_fw.astype('float64')
+c_control_high_old_fw =c_control_high_old_fw.astype('float64')
+c_control_low_new_fw = c_control_low_new_fw.astype('float64')
+c_control_low_new_ew = c_control_low_new_ew.astype('float64')
+c_control_low_old_ew = c_control_low_old_ew.astype('float64')
+c_control_low_old_fw = c_control_low_old_fw.astype('float64')
+control_high_fw = control_high_fw.astype('float64')
+control_low_ew = control_low_ew.astype('float64')
+control_low_fw = control_low_fw.astype('float64')
+control_low_new_fw = control_low_new_fw.astype('float64')
+ttest(control_ew,c_control_ew)
+#c_control_low_old_fw
+
+
+# In[23]:
+
+
+#c_control_new_loww.index.values.astype('str')
+#c_control_new_loww
+#df_control_words#.loc[c_control_low_new_ew.index.values]
+control_low_new_fw
+
+
+# In[38]:
+
+
+with pd.ExcelWriter(r"C:\Users\Acer Nitro 5 Spin\Desktop\wola hp & lp\control_low_9-16_same-ppl.xlsx") as writer:  
+    control_loww.iloc[:,8:].to_excel(writer, sheet_name='words')
+    control_lowm.iloc[:,8:].to_excel(writer, sheet_name='mistakes')
+
+with pd.ExcelWriter(r"C:\Users\Acer Nitro 5 Spin\Desktop\wola hp & lp\control_high_9-16_same-ppl.xlsx") as writer:  
+    control_highw.iloc[:,8:].to_excel(writer, sheet_name='words')
+    control_highm.iloc[:,8:].to_excel(writer, sheet_name='mistakes')
+    
+with pd.ExcelWriter(r"C:\Users\Acer Nitro 5 Spin\Desktop\wola hp & lp\control_1-9_hp.xlsx") as writer:  
+    control_highw.to_excel(writer, sheet_name='words')
+    control_highm.to_excel(writer, sheet_name='mistakes')
+    
+with pd.ExcelWriter(r"C:\Users\Acer Nitro 5 Spin\Desktop\wola hp & lp\control_1-9_lp.xlsx") as writer:  
+    control_loww.to_excel(writer, sheet_name='words')
+    control_lowm.to_excel(writer, sheet_name='mistakes')
+
+
+
+with pd.ExcelWriter(r"C:\Users\Acer Nitro 5 Spin\Desktop\wola hp & lp\control_low_9-16_new-ppl.xlsx") as writer:  
+    control_9_16_loww.to_excel(writer, sheet_name='words')
+    control_9_16_lowm.to_excel(writer, sheet_name='mistakes')
+
+with pd.ExcelWriter(r"C:\Users\Acer Nitro 5 Spin\Desktop\wola hp & lp\control_high_9-16_new-ppl.xlsx") as writer:  
+    control_9_16_highw.to_excel(writer, sheet_name='words')
+    control_9_16_highw.to_excel(writer, sheet_name='mistakes')
+
+with pd.ExcelWriter(r"C:\Users\Acer Nitro 5 Spin\Desktop\wola hp & lp\coded_hp.xlsx") as writer:  
+    coded_highw.to_excel(writer, sheet_name='words')
+    coded_highm.to_excel(writer, sheet_name='mistakes')
+
+with pd.ExcelWriter(r"C:\Users\Acer Nitro 5 Spin\Desktop\wola hp & lp\coded_lp.xlsx") as writer:  
+    coded_loww.to_excel(writer, sheet_name='words')
+    coded_lowm.to_excel(writer, sheet_name='mistakes')
+    
+with pd.ExcelWriter(r"C:\Users\Acer Nitro 5 Spin\Desktop\wola hp & lp\uncoded_hp.xlsx") as writer:  
+    uncoded_highw.to_excel(writer, sheet_name='words')
+    uncoded_highm.to_excel(writer, sheet_name='mistakes')
+
+with pd.ExcelWriter(r"C:\Users\Acer Nitro 5 Spin\Desktop\wola hp & lp\uncoded_lp.xlsx") as writer:  
+    uncoded_loww.to_excel(writer, sheet_name='words')
+    uncoded_lowm.to_excel(writer, sheet_name='mistakes')
+    
+with pd.ExcelWriter(r"C:\Users\Acer Nitro 5 Spin\Desktop\wola hp & lp\direct_hp.xlsx") as writer:  
+    direct_highw.to_excel(writer, sheet_name='words')
+    direct_highm.to_excel(writer, sheet_name='mistakes')
+
+with pd.ExcelWriter(r"C:\Users\Acer Nitro 5 Spin\Desktop\wola hp & lp\direct_lp.xlsx") as writer:  
+    direct_loww.to_excel(writer, sheet_name='words')
+    direct_lowm.to_excel(writer, sheet_name='mistakes')
+
